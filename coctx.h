@@ -25,15 +25,16 @@ struct coctx_param_t
 	const void *s1;
 	const void *s2;
 };
+//协程的上下文环境
 struct coctx_t
 {
 #if defined(__i386__)
-	void *regs[ 8 ];
+	void *regs[ 8 ];    //i386架构下有8个寄存器信息
 #else
 	void *regs[ 14 ];
 #endif
-	size_t ss_size;
-	char *ss_sp;
+	size_t ss_size;     //栈大小
+	char *ss_sp;        //栈指针
 	
 };
 

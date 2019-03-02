@@ -48,11 +48,12 @@ using namespace std;
 stCoRoutine_t *GetCurrCo( stCoRoutineEnv_t *env );
 struct stCoEpoll_t;
 
+//协程运行环境
 struct stCoRoutineEnv_t
 {
-	stCoRoutine_t *pCallStack[ 128 ];
-	int iCallStackSize;
-	stCoEpoll_t *pEpoll;
+	stCoRoutine_t *pCallStack[ 128 ];   //记录当前创建的协程  pCallStack[iCallStackSize-1]为当前正在运行的协程
+	int iCallStackSize;                 //记录一共创建了多少个协程
+	stCoEpoll_t *pEpoll;                //协程调度器
 
 	//for copy stack log lastco and nextco
 	stCoRoutine_t* pending_co;
@@ -518,12 +519,16 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env, const stCoRoutineAt
 	return lp;
 }
 
+//创建一个新协程
 int co_create( stCoRoutine_t **ppco,const stCoRoutineAttr_t *attr,pfn_co_routine_t pfn,void *arg )
 {
+    //获取当前线程的协程运行环境
 	if( !co_get_curr_thread_env() ) 
 	{
+        //不存在则初始化协程运行环境
 		co_init_curr_thread_env();
 	}
+    //创建具体协程
 	stCoRoutine_t *co = co_create_env( co_get_curr_thread_env(), attr, pfn,arg );
 	*ppco = co;
 	return 0;
@@ -544,26 +549,32 @@ void co_release( stCoRoutine_t *co )
 
 void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co);
 
+//执行一个协程
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
+    //获取当前正在运行的协程
 	stCoRoutine_t *lpCurrRoutine = env->pCallStack[ env->iCallStackSize - 1 ];
 	if( !co->cStart )
 	{
+        //为将要运行的协程设置上下文环境
 		coctx_make( &co->ctx,(coctx_pfn_t)CoRoutineFunc,co,0 );
 		co->cStart = 1;
 	}
+    //设置co为运行的协程
 	env->pCallStack[ env->iCallStackSize++ ] = co;
 	co_swap( lpCurrRoutine, co );
-
-
 }
+
 void co_yield_env( stCoRoutineEnv_t *env )
 {
 	
+    //获取要唤醒的协程
 	stCoRoutine_t *last = env->pCallStack[ env->iCallStackSize - 2 ];
+    //获取当前正在运行的协程
 	stCoRoutine_t *curr = env->pCallStack[ env->iCallStackSize - 1 ];
 
+    //将当前正在运行的线程出栈
 	env->iCallStackSize--;
 
 	co_swap( curr, last);
@@ -600,7 +611,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 {
  	stCoRoutineEnv_t* env = co_get_curr_thread_env();
 
-	//get curr stack sp
+	//get curr stack sp 记录当前协程的运行栈的栈顶指针
 	char c;
 	curr->stack_sp= &c;
 
@@ -624,7 +635,7 @@ void co_swap(stCoRoutine_t* curr, stCoRoutine_t* pending_co)
 		}
 	}
 
-	//swap context
+	//swap context 切换上下文环境 执行完coctx_swap之后,执行流程将跳到协程pending_co中运行,后面的代码需要再次切换到curr协程时才会执行
 	coctx_swap(&(curr->ctx),&(pending_co->ctx) );
 
 	//stack buffer may be overwrite, so get again;
@@ -701,14 +712,17 @@ static short EpollEvent2Poll( uint32_t events )
 	return e;
 }
 
+//使用__thread修饰, 线程局部存储(TLS),每个线程有一个该变量的实例,各个线程的值互不干涉
 static __thread stCoRoutineEnv_t* gCoEnvPerThread = NULL;
 
+//初始化线程的协程运行环境
 void co_init_curr_thread_env()
 {
 	gCoEnvPerThread = (stCoRoutineEnv_t*)calloc( 1, sizeof(stCoRoutineEnv_t) );
 	stCoRoutineEnv_t *env = gCoEnvPerThread;
 
 	env->iCallStackSize = 0;
+    //创建一个空的协程,初始化上下文环境,将其加入到线程的协程环境中进行管理,设置其为主协程,用来运行该线程主逻辑.
 	struct stCoRoutine_t *self = co_create_env( env, NULL, NULL,NULL );
 	self->cIsMain = 1;
 
@@ -719,6 +733,7 @@ void co_init_curr_thread_env()
 
 	env->pCallStack[ env->iCallStackSize++ ] = self;
 
+    //设置协程调度器
 	stCoEpoll_t *ev = AllocEpoll();
 	SetEpoll( env,ev );
 }

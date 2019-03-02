@@ -44,10 +44,13 @@ typedef int (*pfn_co_eventloop_t)(void *);
 typedef void *(*pfn_co_routine_t)( void * );
 
 //2.co_routine
-
+//创建一个新协程
 int 	co_create( stCoRoutine_t **co,const stCoRoutineAttr_t *attr,void *(*routine)(void*),void *arg );
+//执行一个协程
 void    co_resume( stCoRoutine_t *co );
+//让某个协程yield(让出时间片)
 void    co_yield( stCoRoutine_t *co );
+//让当前协程yield
 void    co_yield_ct(); //ct = current thread
 void    co_release( stCoRoutine_t *co );
 

@@ -46,12 +46,13 @@ struct stShareStack_t
 
 
 
+//表示协程的数据结构
 struct stCoRoutine_t
 {
-	stCoRoutineEnv_t *env;
-	pfn_co_routine_t pfn;
-	void *arg;
-	coctx_t ctx;
+	stCoRoutineEnv_t *env;  //协程运行环境
+	pfn_co_routine_t pfn;   //协程执行的逻辑函数
+	void *arg;              //函数参数
+	coctx_t ctx;            //保存协程的上下文环境
 
 	char cStart;
 	char cEnd;
@@ -62,11 +63,11 @@ struct stCoRoutine_t
 	void *pvEnv;
 
 	//char sRunStack[ 1024 * 128 ];
-	stStackMem_t* stack_mem;
+	stStackMem_t* stack_mem;    //协程运行时的栈空间
 
 
 	//save satck buffer while confilct on same stack_buffer;
-	char* stack_sp; 
+	char* stack_sp;             //
 	unsigned int save_size;
 	char* save_buffer;
 
